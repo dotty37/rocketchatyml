@@ -1,6 +1,7 @@
 # rocketchatyml
 This is a working yml file using Traefik, Mongo and Rocket 6
 s minimum, you will need:
+
 1- A domain name
 2- An email address
 3- Firewall open to ports 80 and 443 (port 8080 is for the Traefik Dashboard, and should be allowed only internally, or at least from trusted IP addresses)
