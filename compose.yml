@@ -1,0 +1,62 @@
+volumes:
+  mongodb_data: { driver: local }
+
+services:
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:6.0.1
+    restart: on-failure
+    labels:
+     traefik.enable: true
+     traefik.http.routers.rocketchat.rule: Host(`INSERT_DOMAIN_HERE`)
+     traefik.http.routers.rocketchat.entrypoints: http
+     traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
+     traefik.http.routers.rocketchat.middlewares: redirect-to-https@docker
+     traefik.http.routers.rocketchat-secured.rule: Host(`INSERT_DOMAIN_HERE`)
+     traefik.http.routers.rocketchat-secured.entrypoints: https
+     traefik.http.routers.rocketchat-secured.tls: true
+     traefik.http.routers.rocketchat-secured.tls.certresolver: le
+    environment:
+      MONGO_URL: mongodb://mongodb:27017/rocketchat?replicaSet=rs0
+      MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
+      ROOT_URL: http://INSERT_DOMAIN_HERE
+      PORT: 3000
+      DEPLOY_METHOD: docker
+    depends_on:
+      - mongodb
+    ports:
+      - "3000:3000"
+  mongodb:
+    image: docker.io/bitnami/mongodb:4.4
+    restart: on-failure
+    volumes:
+      - mongodb_data:/bitnami/mongodb
+    environment:
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_REPLICA_SET_NAME: rs0
+      MONGODB_PORT_NUMBER: 27017
+      MONGODB_INITIAL_PRIMARY_HOST: mongodb
+      MONGODB_INITIAL_PRIMARY_PORT_NUMBER: 27017
+      MONGODB_ADVERTISED_HOSTNAME: mongodb
+      MONGODB_ENABLE_JOURNAL: true
+      ALLOW_EMPTY_PASSWORD: yes
+  traefik:
+    image: docker.io/traefik:v2.9.8
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=INSERT_EMAIL_HERE
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # This line below is to get a testing SSL cert, just uncomment it and thats it.
+      #- --certificatesresolvers.le.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+    ports:
+     - 80:80
+     - 443:443
+     - 8080:8080
+    volumes:
+      - ./letsencrypt:/letsencrypt:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
